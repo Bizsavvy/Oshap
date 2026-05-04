@@ -1,0 +1,42 @@
+{
+  "xs": {
+    "value": 4,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "s": {
+    "value": 8,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "md": {
+    "value": 16,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "l": {
+    "value": 24,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "xl": {
+    "value": 32,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "2xl": {
+    "value": 40,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "3xl": {
+    "value": 48,
+    "type": "number",
+    "prefix": "cornerradius"
+  },
+  "4xl": {
+    "value": 100,
+    "type": "number",
+    "prefix": "cornerradius"
+  }
+}
