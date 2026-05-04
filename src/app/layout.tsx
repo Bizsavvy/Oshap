@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Poppins, Inter } from "next/font/google";
 import "./globals.css";
+import { ClientProviders } from "@/components/ClientProviders";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -40,7 +41,9 @@ export default function RootLayout({
       <head>
         <link href="https://cdn.jsdelivr.net/npm/mingcute_icon/font/Mingcute.css" rel="stylesheet" />
       </head>
-      <body>{children}</body>
+      <body>
+        <ClientProviders>{children}</ClientProviders>
+      </body>
     </html>
   );
 }

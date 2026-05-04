@@ -25,16 +25,13 @@ export default function BottomNav({ tableId }: BottomNavProps) {
         <span className={styles.navLabel}>Menu</span>
       </Link>
 
-      <button
-        className={`${styles.navItem} ${isActive("/order") ? styles.navItemActive : ""}`}
-        onClick={() => setIsCartOpen(true)}
+      <Link
+        href={`/orders?table=${tableId}`}
+        className={`${styles.navItem} ${isActive("/orders") ? styles.navItemActive : ""}`}
       >
-        <i className={`mgc_shopping_cart_1_line ${styles.navIcon}`}></i>
-        {totalItems > 0 && (
-          <span className={styles.badge}>{totalItems}</span>
-        )}
-        <span className={styles.navLabel}>Orders</span>
-      </button>
+        <i className={`mgc_group_line ${styles.navIcon}`}></i>
+        <span className={styles.navLabel}>My Orders</span>
+      </Link>
 
       <Link
         href={`/pay?table=${tableId}`}

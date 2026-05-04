@@ -1,0 +1,138 @@
+"use client";
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+
+interface TableSession {
+  id: string;
+  table_id: string;
+  pin: string;
+  status: string;
+  created_at: string;
+}
+
+interface SessionContextType {
+  session: TableSession | null;
+  customerName: string;
+  setCustomerName: (name: string) => void;
+  startSession: (tableId: string) => Promise<TableSession>;
+  joinSession: (pin: string, tableId: string) => Promise<TableSession | null>;
+  clearSession: () => void;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const SessionContext = createContext<SessionContextType | undefined>(undefined);
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<TableSession | null>(null);
+  const [customerName, setCustomerName] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // On mount, load from localStorage
+  useEffect(() => {
+    const savedSession = sessionStorage.getItem("table_session");
+    const savedName = sessionStorage.getItem("customer_name");
+    
+    if (savedSession) {
+      setSession(JSON.parse(savedSession));
+    }
+    if (savedName) {
+      setCustomerName(savedName);
+    }
+  }, []);
+
+  // Sync to sessionStorage
+  useEffect(() => {
+    if (session) {
+      sessionStorage.setItem("table_session", JSON.stringify(session));
+    } else {
+      sessionStorage.removeItem("table_session");
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (customerName) {
+      sessionStorage.setItem("customer_name", customerName);
+    } else {
+      sessionStorage.removeItem("customer_name");
+    }
+  }, [customerName]);
+
+  const startSession = async (tableId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableId, action: "START" }),
+      });
+      if (!res.ok) throw new Error("Failed to start session");
+      const data = await res.json();
+      setSession(data.session);
+      return data.session;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const joinSession = async (pin: string, tableId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableId, pin, action: "JOIN" }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Failed to join session");
+      }
+      const data = await res.json();
+      setSession(data.session);
+      return data.session;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearSession = () => {
+    setSession(null);
+    setCustomerName("");
+  };
+
+  return (
+    <SessionContext.Provider
+      value={{
+        session,
+        customerName,
+        setCustomerName,
+        startSession,
+        joinSession,
+        clearSession,
+        isLoading,
+        error,
+      }}
+    >
+      {children}
+    </SessionContext.Provider>
+  );
+}
+
+export function useSession() {
+  const context = useContext(SessionContext);
+  if (context === undefined) {
+    throw new Error("useSession must be used within a SessionProvider");
+  }
+  return context;
+}

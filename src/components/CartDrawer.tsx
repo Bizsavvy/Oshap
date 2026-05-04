@@ -25,7 +25,7 @@ export default function CartDrawer({ tableId }: CartDrawerProps) {
 
   const handlePlaceOrder = () => {
     setIsCartOpen(false);
-    router.push(`/order?table=${tableId}`);
+    router.push(`/checkout?table=${tableId}`);
   };
 
   return (

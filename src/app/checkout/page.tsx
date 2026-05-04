@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
+import { useSession } from "@/context/SessionContext";
 import BottomNav from "@/components/BottomNav";
 import styles from "./page.module.css";
 
@@ -32,6 +33,7 @@ function OrderView({
   router: ReturnType<typeof useRouter>;
 }) {
   const { items, totalPrice, clearCart } = useCart();
+  const { session, customerName } = useSession();
 
   const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
 
@@ -53,7 +55,9 @@ function OrderView({
       const payload = {
         table: tableId,
         restaurant_id: tableData.restaurant?.id || "00000000-0000-0000-0000-000000000001",
-        items: items.map(i => ({ name: i.name, qty: i.quantity, price: i.price }))
+        items: items.map(i => ({ name: i.name, qty: i.quantity, price: i.price })),
+        session_id: session?.id || null,
+        customer_name: customerName || null,
       };
 
       const orderRes = await fetch("/api/order", {
