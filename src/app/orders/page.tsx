@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
 import BottomNav from "@/components/BottomNav";
+import CartBar from "@/components/CartBar";
+import CartDrawer from "@/components/CartDrawer";
 import styles from "./page.module.css";
 
 function OrdersPageContent() {
@@ -14,6 +16,8 @@ function OrdersPageContent() {
   return (
     <CartProvider tableId={tableId}>
       <OrdersView tableId={tableId} />
+      <CartBar tableId={tableId} />
+      <CartDrawer tableId={tableId} />
       <BottomNav tableId={tableId} />
     </CartProvider>
   );
@@ -35,6 +39,7 @@ function OrdersView({ tableId }: { tableId: string }) {
     setCustomerName,
     startSession,
     joinSession,
+    isHydrated,
   } = useSession();
 
   const [isStarting, setIsStarting] = useState(false);
@@ -44,15 +49,20 @@ function OrdersView({ tableId }: { tableId: string }) {
 
   const [sessionOrders, setSessionOrders] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const isFirstLoad = useRef(true);
+  const [reorderToast, setReorderToast] = useState<string | null>(null);
+  const hasFetchedOnce = useRef(false);
 
   // Stable order id for this page visit
-  const displayOrderId = useMemo(() => generateOrderId(), []);
+  const [displayOrderId, setDisplayOrderId] = useState("");
+  useEffect(() => {
+    setDisplayOrderId(generateOrderId());
+  }, []);
 
   /* ── fetch orders ── */
   useEffect(() => {
     const fetchOrders = async () => {
-      if (isFirstLoad.current) {
+      // Only show loading spinner on the very first fetch
+      if (!hasFetchedOnce.current) {
         setIsLoadingOrders(true);
       }
       try {
@@ -63,20 +73,13 @@ function OrdersView({ tableId }: { tableId: string }) {
         const res = await fetch(`/api/session/orders?${queryParams}`);
         if (res.ok) {
           const data = await res.json();
-          const newOrders = data.orders || [];
-          // Only update state if data actually changed to avoid unnecessary re-renders
-          setSessionOrders((prev) => {
-            if (JSON.stringify(prev) === JSON.stringify(newOrders)) return prev;
-            return newOrders;
-          });
+          setSessionOrders(data.orders || []);
         }
       } catch (err) {
         console.error("Failed to fetch session orders", err);
       } finally {
-        if (isFirstLoad.current) {
-          setIsLoadingOrders(false);
-          isFirstLoad.current = false;
-        }
+        hasFetchedOnce.current = true;
+        setIsLoadingOrders(false);
       }
     };
 
@@ -115,18 +118,14 @@ function OrdersView({ tableId }: { tableId: string }) {
 
   /* ── cart access (for reorder) ── */
   const { items: cartItems, addItem, updateQuantity } = useCart();
-  const [reorderedItem, setReorderedItem] = useState<string | null>(null);
-  const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleReorder = useCallback(async (item: any) => {
-    setReorderedItem(item.name);
-    if (reorderTimer.current) clearTimeout(reorderTimer.current);
-    reorderTimer.current = setTimeout(() => setReorderedItem(null), 1500);
-
+  const handleReorder = async (item: any) => {
     // If already in cart, just increment qty
     const existing = cartItems.find((i) => i.name === item.name);
     if (existing) {
       updateQuantity(existing.id, existing.quantity + 1);
+      setReorderToast(`${item.name} added to cart!`);
+      setTimeout(() => setReorderToast(null), 2000);
       return;
     }
 
@@ -140,6 +139,8 @@ function OrdersView({ tableId }: { tableId: string }) {
         );
         if (match) {
           addItem({ id: match.id, name: match.name, price: match.price, image: match.image_url });
+          setReorderToast(`${item.name} added to cart!`);
+          setTimeout(() => setReorderToast(null), 2000);
           return;
         }
       }
@@ -149,15 +150,16 @@ function OrdersView({ tableId }: { tableId: string }) {
 
     // Fallback: redirect to menu
     router.push(`/menu?table=${tableId}`);
-  }, [cartItems, addItem, updateQuantity, router, tableId]);
+  };
 
   /* ── split orders ── */
-  const personalOrders = sessionOrders.filter(
-    (o) => o.customer_name === customerName
-  );
-  const othersOrders = sessionOrders.filter(
-    (o) => o.customer_name !== customerName
-  );
+  const personalOrders = session
+    ? sessionOrders.filter((o) => o.customer_name === customerName)
+    : sessionOrders;
+
+  const othersOrders = session
+    ? sessionOrders.filter((o) => o.customer_name !== customerName)
+    : [];
   const personalItems = personalOrders.flatMap((o) => o.order_items || []);
 
   // Collect all unique items from others (for bottom banner)
@@ -188,7 +190,14 @@ function OrdersView({ tableId }: { tableId: string }) {
       </header>
 
       {/* ──── Order Together ──── */}
-      {session ? (
+      {!isHydrated ? (
+        <section className={styles.joinSection} style={{ opacity: 0 }}>
+          <div className={styles.joinCard}>
+            <h2 className={styles.joinTitle}>Order together</h2>
+            <p className={styles.joinDesc}>Loading session...</p>
+          </div>
+        </section>
+      ) : session ? (
         <section className={styles.orderTogetherSection}>
           <div className={styles.orderTogetherCard}>
             <div className={styles.orderTogetherContent}>
@@ -306,32 +315,40 @@ function OrdersView({ tableId }: { tableId: string }) {
             </button>
           </div>
         ) : (
-          <>
-            <p className={styles.orderGroupLabel}>Order 1</p>
-            <div className={styles.itemsList}>
-              {personalItems.map((item: any, idx: number) => (
-                <div key={idx} className={styles.itemRow}>
-                  <div className={styles.itemLeft}>
-                    <div className={styles.vegDot}>
-                      <div className={styles.vegDotInner} />
-                    </div>
-                    <div className={styles.itemInfo}>
-                      <span className={styles.itemName}>{item.name}</span>
-                      <span className={styles.itemQty}>
-                        Qty {item.quantity}
-                      </span>
-                    </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-l)" }}>
+            {personalOrders.map((order, orderIdx) => {
+              if (!order.order_items || order.order_items.length === 0) return null;
+              
+              return (
+                <div key={order.id || orderIdx}>
+                  <p className={styles.orderGroupLabel}>Order {orderIdx + 1}</p>
+                  <div className={styles.itemsList}>
+                    {order.order_items.map((item: any, idx: number) => (
+                      <div key={idx} className={styles.itemRow}>
+                        <div className={styles.itemLeft}>
+                          <div className={styles.vegDot}>
+                            <div className={styles.vegDotInner} />
+                          </div>
+                          <div className={styles.itemInfo}>
+                            <span className={styles.itemName}>{item.name}</span>
+                            <span className={styles.itemQty}>
+                              Qty {item.quantity || item.qty}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          className={styles.reorderBtn}
+                          onClick={() => handleReorder(item)}
+                        >
+                          REORDER
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    className={`${styles.reorderBtn} ${reorderedItem === item.name ? styles.reorderBtnAdded : ""}`}
-                    onClick={() => handleReorder(item)}
-                  >
-                    {reorderedItem === item.name ? "ADDED ✓" : "REORDER"}
-                  </button>
                 </div>
-              ))}
-            </div>
-          </>
+              );
+            })}
+          </div>
         )}
       </section>
 
@@ -362,6 +379,14 @@ function OrdersView({ tableId }: { tableId: string }) {
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Reorder toast */}
+      {reorderToast && (
+        <div className={styles.reorderToast}>
+          <i className="mgc_check_circle_fill" style={{ fontSize: '18px' }}></i>
+          {reorderToast}
         </div>
       )}
     </div>

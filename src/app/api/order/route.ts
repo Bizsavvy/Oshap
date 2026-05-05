@@ -13,6 +13,20 @@ export async function POST(request: Request) {
 
   const supabase = createServerClient();
 
+  // Reject orders on closed tables
+  const { data: tableData } = await supabase
+    .from("tables")
+    .select("status")
+    .eq("id", table)
+    .single();
+
+  if (tableData?.status === "CLOSED") {
+    return Response.json(
+      { error: "This table is closed and cannot accept new orders" },
+      { status: 403 }
+    );
+  }
+
   // Calculate total
   const total = items.reduce(
     (sum: number, item: { price: number; qty: number }) =>
@@ -24,6 +38,26 @@ export async function POST(request: Request) {
   const rand = Math.floor(1000 + Math.random() * 9000);
   const reference = `OSHAP-${table}-${rand}`;
 
+  // Validate and potentially recreate session_id
+  let validSessionId = session_id;
+  if (session_id) {
+    const { data: sessionData } = await supabase
+      .from("table_sessions")
+      .select("id")
+      .eq("id", session_id)
+      .single();
+    
+    if (!sessionData) {
+      // Re-create the missing session so the user's browser doesn't get orphaned
+      await supabase.from("table_sessions").insert({
+        id: session_id,
+        table_id: table,
+        pin: "0000", // Default pin if recreated
+        status: "ACTIVE"
+      });
+    }
+  }
+
   // Create order
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -33,7 +67,7 @@ export async function POST(request: Request) {
       status: "CREATED",
       total,
       reference,
-      session_id,
+      session_id: validSessionId,
       customer_name,
     })
     .select()
@@ -61,11 +95,7 @@ export async function POST(request: Request) {
     return Response.json({ error: itemsError.message }, { status: 500 });
   }
 
-  // Update order status to PAYMENT_PENDING
-  await supabase
-    .from("orders")
-    .update({ status: "PAYMENT_PENDING" })
-    .eq("id", order.id);
+  // The order remains in 'CREATED' status until payment is confirmed on the Pay screen.
 
   return Response.json({
     success: true,

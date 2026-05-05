@@ -6,6 +6,7 @@ import { CartProvider, useCart } from "@/context/CartContext";
 import CategoryTabs from "@/components/CategoryTabs";
 import MenuCard from "@/components/MenuCard";
 import CartDrawer from "@/components/CartDrawer";
+import CartBar from "@/components/CartBar";
 import BottomNav from "@/components/BottomNav";
 import styles from "./page.module.css";
 
@@ -33,7 +34,7 @@ const DEMO_MENU = [
     price: 3500,
     category: "Meals",
     description: "Party-style jollof rice with a perfectly grilled chicken thigh",
-    image_url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1596797038530-2c107229654b?w=400&q=80",
   },
   {
     id: "4",
@@ -41,7 +42,7 @@ const DEMO_MENU = [
     price: 4000,
     category: "Meals",
     description: "Vegetable fried rice served with peppered turkey",
-    image_url: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80",
   },
   {
     id: "5",
@@ -49,7 +50,7 @@ const DEMO_MENU = [
     price: 2000,
     category: "Meals",
     description: "Spicy fried chicken in a pepper sauce",
-    image_url: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400&q=80",
   },
   {
     id: "6",
@@ -57,7 +58,7 @@ const DEMO_MENU = [
     price: 3000,
     category: "Grills",
     description: "Grilled beef skewers with yaji spice, onions and tomatoes",
-    image_url: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&q=80",
   },
   {
     id: "7",
@@ -73,7 +74,7 @@ const DEMO_MENU = [
     price: 3500,
     category: "Grills",
     description: "Spicy smoked goat meat with peppers and onions",
-    image_url: "https://images.unsplash.com/photo-1553621042-f6e147245754?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80",
   },
   {
     id: "9",
@@ -121,7 +122,7 @@ const DEMO_MENU = [
     price: 500,
     category: "Sides",
     description: "6 pieces of fluffy Nigerian doughnuts",
-    image_url: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&q=80",
+    image_url: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&q=80",
   },
   {
     id: "15",
@@ -313,26 +314,6 @@ function MenuPageContent() {
         <BottomNav tableId={tableId} />
       </div>
     </CartProvider>
-  );
-}
-
-function CartBar({ tableId }: { tableId: string }) {
-  const { totalItems, totalPrice, setIsCartOpen } = useCart();
-
-  if (totalItems === 0) return null;
-
-  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
-
-  return (
-    <div className={styles.cartBar}>
-      <div className={styles.cartBarInner} onClick={() => setIsCartOpen(true)}>
-        <div className={styles.cartBarLeft}>
-          <span className={styles.cartCount}>{totalItems}</span>
-          <span className={styles.cartLabel}>View Cart</span>
-        </div>
-        <span className={styles.cartTotal}>{formatPrice(totalPrice)}</span>
-      </div>
-    </div>
   );
 }
 

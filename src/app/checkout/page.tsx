@@ -91,7 +91,7 @@ function OrderView({
       );
 
       clearCart();
-      router.push(`/pay?table=${tableId}&order_id=${orderData.order_id}&ref=${orderData.reference}`);
+      router.push(`/orders?table=${tableId}`);
     } catch (err) {
       console.error("Order error:", err);
       alert("Failed to place order. Please check your connection and try again.");

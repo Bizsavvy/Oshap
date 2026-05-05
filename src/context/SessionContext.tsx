@@ -20,6 +20,7 @@ interface SessionContextType {
   clearSession: () => void;
   isLoading: boolean;
   error: string | null;
+  isHydrated: boolean;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -29,6 +30,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [customerName, setCustomerName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const searchParams = useSearchParams();
 
   // On mount, load from localStorage
@@ -37,12 +39,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const savedName = sessionStorage.getItem("customer_name");
     
     if (savedSession) {
-      setSession(JSON.parse(savedSession));
+      const parsed = JSON.parse(savedSession);
+      const currentTableId = searchParams.get("table") || "T1";
+      if (parsed.table_id === currentTableId) {
+        setSession(parsed);
+      } else {
+        sessionStorage.removeItem("table_session");
+      }
     }
     if (savedName) {
       setCustomerName(savedName);
     }
-  }, []);
+    setIsHydrated(true);
+  }, [searchParams]);
 
   // Sync to sessionStorage
   useEffect(() => {
@@ -122,6 +131,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         clearSession,
         isLoading,
         error,
+        isHydrated,
       }}
     >
       {children}

@@ -21,3 +21,7 @@ CREATE POLICY "Enable all for anon on table_sessions" ON public.table_sessions F
 -- Fix for payments upsert
 ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_order_id_key;
 ALTER TABLE public.payments ADD CONSTRAINT payments_order_id_key UNIQUE (order_id);
+
+-- Allow public to update table status (waiter closes table)
+DROP POLICY IF EXISTS "Public can update tables" ON public.tables;
+CREATE POLICY "Public can update tables" ON public.tables FOR UPDATE USING (true);
