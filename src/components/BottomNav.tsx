@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useCart } from "@/context/CartContext";
 import styles from "./BottomNav.module.css";
 
 interface BottomNavProps {
@@ -11,7 +10,6 @@ interface BottomNavProps {
 
 export default function BottomNav({ tableId }: BottomNavProps) {
   const pathname = usePathname();
-  const { totalItems, setIsCartOpen } = useCart();
 
   const isActive = (path: string) => pathname.startsWith(path);
 

@@ -15,4 +15,9 @@ ADD COLUMN IF NOT EXISTS customer_name TEXT;
 -- RLS Policies (assuming RLS is enabled on these tables, adjust if needed)
 -- For MVP, we might allow anonymous access if that's how it's configured
 ALTER TABLE public.table_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all for anon on table_sessions" ON public.table_sessions;
 CREATE POLICY "Enable all for anon on table_sessions" ON public.table_sessions FOR ALL USING (true);
+
+-- Fix for payments upsert
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_order_id_key;
+ALTER TABLE public.payments ADD CONSTRAINT payments_order_id_key UNIQUE (order_id);

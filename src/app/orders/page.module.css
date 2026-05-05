@@ -401,6 +401,12 @@
   color: var(--color-on-primary);
 }
 
+.reorderBtnAdded {
+  background: var(--color-success) !important;
+  color: #fff !important;
+  border-color: var(--color-success) !important;
+}
+
 /* ===== Empty state ===== */
 .emptyState {
   padding: var(--spacing-2xl) var(--spacing-md);

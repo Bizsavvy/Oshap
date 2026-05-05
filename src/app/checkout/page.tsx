@@ -139,7 +139,7 @@ function OrderView({
           onClick={() => router.push(`/menu?table=${tableId}`)}
           aria-label="Back to menu"
         >
-          ←
+          <i className="mgc_left_line"></i>
         </button>
         <h1 className={styles.headerTitle}>Confirm Order</h1>
       </header>

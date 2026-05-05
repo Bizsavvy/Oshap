@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
@@ -43,35 +43,47 @@ function OrdersView({ tableId }: { tableId: string }) {
   const [showJoinForm, setShowJoinForm] = useState(false);
 
   const [sessionOrders, setSessionOrders] = useState<any[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const isFirstLoad = useRef(true);
 
   // Stable order id for this page visit
   const displayOrderId = useMemo(() => generateOrderId(), []);
 
-  /* ── fetch session orders ── */
+  /* ── fetch orders ── */
   useEffect(() => {
-    if (session?.id) {
-      const fetchOrders = async () => {
+    const fetchOrders = async () => {
+      if (isFirstLoad.current) {
         setIsLoadingOrders(true);
-        try {
-          const res = await fetch(
-            `/api/session/orders?session_id=${session.id}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            setSessionOrders(data.orders || []);
-          }
-        } catch (err) {
-          console.error("Failed to fetch session orders", err);
-        } finally {
-          setIsLoadingOrders(false);
+      }
+      try {
+        const queryParams = session?.id 
+          ? `session_id=${session.id}` 
+          : `table_id=${tableId}`;
+
+        const res = await fetch(`/api/session/orders?${queryParams}`);
+        if (res.ok) {
+          const data = await res.json();
+          const newOrders = data.orders || [];
+          // Only update state if data actually changed to avoid unnecessary re-renders
+          setSessionOrders((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(newOrders)) return prev;
+            return newOrders;
+          });
         }
-      };
-      fetchOrders();
-      const interval = setInterval(fetchOrders, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [session?.id]);
+      } catch (err) {
+        console.error("Failed to fetch session orders", err);
+      } finally {
+        if (isFirstLoad.current) {
+          setIsLoadingOrders(false);
+          isFirstLoad.current = false;
+        }
+      }
+    };
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 3000);
+    return () => clearInterval(interval);
+  }, [session?.id, tableId]);
 
   /* ── handlers ── */
   const handleStartSession = async () => {
@@ -102,16 +114,42 @@ function OrdersView({ tableId }: { tableId: string }) {
   };
 
   /* ── cart access (for reorder) ── */
-  const { items: cartItems, updateQuantity } = useCart();
+  const { items: cartItems, addItem, updateQuantity } = useCart();
+  const [reorderedItem, setReorderedItem] = useState<string | null>(null);
+  const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleReorder = (item: any) => {
+  const handleReorder = useCallback(async (item: any) => {
+    setReorderedItem(item.name);
+    if (reorderTimer.current) clearTimeout(reorderTimer.current);
+    reorderTimer.current = setTimeout(() => setReorderedItem(null), 1500);
+
+    // If already in cart, just increment qty
     const existing = cartItems.find((i) => i.name === item.name);
     if (existing) {
       updateQuantity(existing.id, existing.quantity + 1);
-    } else {
-      router.push(`/menu?table=${tableId}`);
+      return;
     }
-  };
+
+    // Fetch menu to find the item's real UUID
+    try {
+      const res = await fetch("/api/menu");
+      if (res.ok) {
+        const menuData = await res.json();
+        const match = menuData.find(
+          (m: any) => m.name.toLowerCase() === item.name.toLowerCase()
+        );
+        if (match) {
+          addItem({ id: match.id, name: match.name, price: match.price, image: match.image_url });
+          return;
+        }
+      }
+    } catch {
+      // Fall through
+    }
+
+    // Fallback: redirect to menu
+    router.push(`/menu?table=${tableId}`);
+  }, [cartItems, addItem, updateQuantity, router, tableId]);
 
   /* ── split orders ── */
   const personalOrders = sessionOrders.filter(
@@ -285,10 +323,10 @@ function OrdersView({ tableId }: { tableId: string }) {
                     </div>
                   </div>
                   <button
-                    className={styles.reorderBtn}
+                    className={`${styles.reorderBtn} ${reorderedItem === item.name ? styles.reorderBtnAdded : ""}`}
                     onClick={() => handleReorder(item)}
                   >
-                    REORDER
+                    {reorderedItem === item.name ? "ADDED ✓" : "REORDER"}
                   </button>
                 </div>
               ))}

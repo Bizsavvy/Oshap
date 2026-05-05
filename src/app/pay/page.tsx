@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import BottomNav from "@/components/BottomNav";
 import styles from "./page.module.css";
 
 interface OrderData {
@@ -11,14 +12,14 @@ interface OrderData {
   total: number;
   table: string;
   createdAt: string;
+  combined_order_ids?: string[];
 }
 
-/* Demo restaurant payment details */
-const RESTAURANT_BANK = {
-  bankName: "Access Bank",
-  accountNumber: "0123456789",
-  accountName: "Aji's Kitchen Ltd",
-};
+interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+}
 
 function PayPageContent() {
   const searchParams = useSearchParams();
@@ -27,51 +28,171 @@ function PayPageContent() {
   const refParam = searchParams.get("ref");
 
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
   const [paymentClaimed, setPaymentClaimed] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Fetch order data from API
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(`oshap-order-${tableId}`);
-      if (saved) {
-        setOrder(JSON.parse(saved));
+    async function loadData() {
+      setIsLoading(true);
+
+      // Always fetch from table API for the combined view
+      try {
+        const tableRes = await fetch(`/api/table/${tableId}`);
+        if (tableRes.ok) {
+          const tableData = await tableRes.json();
+          if (tableData.restaurant) {
+            setBankDetails({
+              bankName: tableData.restaurant.bank_name || "Access Bank",
+              accountNumber: tableData.restaurant.account_number || "0123456789",
+              accountName: tableData.restaurant.account_name || "Aji's Kitchen Ltd",
+            });
+          }
+
+          if (tableData.active_order) {
+            const orderData: OrderData = {
+              id: tableData.active_order.id,
+              reference: tableData.active_order.reference,
+              items: [],
+              total: tableData.active_order.total,
+              table: tableData.active_order.table_id,
+              createdAt: tableData.active_order.created_at,
+              combined_order_ids: tableData.active_order.combined_order_ids || [],
+            };
+            setOrder(orderData);
+
+            // Restore claimed state from sessionStorage
+            try {
+              const claimedKey = `oshap-claimed-${tableId}`;
+              const claimedIds: string[] = JSON.parse(sessionStorage.getItem(claimedKey) || "[]");
+              const currentIds: string[] = orderData.combined_order_ids!.length > 0
+                ? orderData.combined_order_ids!
+                : (orderData.id ? [orderData.id] : []);
+              if (currentIds.length > 0 && currentIds.every((id) => claimedIds.includes(id))) {
+                setPaymentClaimed(true);
+              }
+            } catch { /* noop */ }
+
+            try {
+              sessionStorage.setItem(`oshap-order-${tableId}`, JSON.stringify(orderData));
+            } catch { /* noop */ }
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // Fall back to sessionStorage below
       }
-    } catch {
-      // sessionStorage unavailable
+
+      // Fallback: sessionStorage
+      try {
+        const saved = sessionStorage.getItem(`oshap-order-${tableId}`);
+        if (saved) setOrder(JSON.parse(saved));
+      } catch {
+        // sessionStorage unavailable
+      }
+
+      setIsLoading(false);
     }
+
+    loadData();
   }, [tableId]);
+
+  // After claiming, poll table API to detect waiter confirmation
+  useEffect(() => {
+    if (!paymentClaimed || paymentConfirmed) return;
+
+    const checkConfirmation = async () => {
+      try {
+        const tableRes = await fetch(`/api/table/${tableId}`);
+        if (!tableRes.ok) return;
+        const tableData = await tableRes.json();
+        const activeOrder = tableData.active_order;
+
+        const claimedIds: string[] = order?.combined_order_ids || (order?.id ? [order.id] : []);
+
+        if (!activeOrder) {
+          // No active orders at all = everything settled
+          setPaymentConfirmed(true);
+          if (pollRef.current) clearInterval(pollRef.current);
+          return;
+        }
+
+        if (claimedIds.length > 0) {
+          const stillActive = activeOrder.combined_order_ids?.some(
+            (id: string) => claimedIds.includes(id)
+          );
+          if (!stillActive) {
+            setPaymentConfirmed(true);
+            if (pollRef.current) clearInterval(pollRef.current);
+          }
+        }
+      } catch { /* ignore polling errors */ }
+    };
+
+    checkConfirmation();
+    pollRef.current = setInterval(checkConfirmation, 5000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [paymentClaimed, paymentConfirmed, order?.id, order?.combined_order_ids, tableId]);
+
+  // Clear sessionStorage when waiter confirms
+  useEffect(() => {
+    if (paymentConfirmed) {
+      try {
+        sessionStorage.removeItem(`oshap-order-${tableId}`);
+        sessionStorage.removeItem(`oshap-claimed-${tableId}`);
+      } catch { /* noop */ }
+    }
+  }, [paymentConfirmed, tableId]);
+
+  // Default bank details if API didn't return any
+  const bank = bankDetails || {
+    bankName: "Access Bank",
+    accountNumber: "0123456789",
+    accountName: "Aji's Kitchen Ltd",
+  };
 
   const reference = refParam || order?.reference || "";
   const total = order?.total || 0;
 
   const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
 
-  const copyToClipboard = useCallback(async (text: string, field: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-    } catch {
-      // Clipboard unavailable
-    }
-  }, []);
+  const copyToClipboard = useCallback(
+    async (text: string, field: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      } catch {
+        // Clipboard unavailable
+      }
+    },
+    []
+  );
 
   const handleClaimPayment = async () => {
     setIsSubmitting(true);
     try {
-      // In a real scenario, we might upload proof of payment first and pass the URL
-      const proof_url = null; 
-      const order_id = searchParams.get("order_id") || order?.id;
+      const proof_url = null;
+      const order_id = order?.id;
+      const combined_order_ids = order?.combined_order_ids || [];
 
-      if (!order_id) {
+      if (!order_id && combined_order_ids.length === 0) {
         throw new Error("Order ID not found");
       }
 
       const res = await fetch("/api/payment/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id, proof_url }),
+        body: JSON.stringify({ order_id, combined_order_ids, proof_url }),
       });
 
       if (!res.ok) {
@@ -80,6 +201,15 @@ function PayPageContent() {
       }
 
       setPaymentClaimed(true);
+
+      // Persist claimed IDs so state survives tab switches
+      try {
+        const claimedKey = `oshap-claimed-${tableId}`;
+        const existing: string[] = JSON.parse(sessionStorage.getItem(claimedKey) || "[]");
+        const newIds = combined_order_ids.length > 0 ? combined_order_ids : (order_id ? [order_id] : []);
+        const merged = [...new Set([...existing, ...newIds])];
+        sessionStorage.setItem(claimedKey, JSON.stringify(merged));
+      } catch { /* noop */ }
     } catch (err) {
       console.error("Payment confirmation error:", err);
       alert("Failed to confirm payment. Please try again.");
@@ -87,6 +217,18 @@ function PayPageContent() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loading}>
+          <div className={styles.spinner} />
+          <p>Loading payment details…</p>
+        </div>
+        <BottomNav tableId={tableId} />
+      </div>
+    );
+  }
 
   if (!order && !refParam) {
     return (
@@ -114,6 +256,7 @@ function PayPageContent() {
             Browse Menu
           </button>
         </div>
+        <BottomNav tableId={tableId} />
       </div>
     );
   }
@@ -126,18 +269,27 @@ function PayPageContent() {
           onClick={() => router.push(`/menu?table=${tableId}`)}
           aria-label="Back to menu"
         >
-          ←
+          <i className="mgc_left_line"></i>
         </button>
         <h1 className={styles.headerTitle}>Pay Bill</h1>
       </header>
 
       <div className={styles.content}>
-        {paymentClaimed ? (
+        {paymentConfirmed ? (
+          <div className={styles.confirmedBanner}>
+            <i className={`mgc_check_double_fill ${styles.confirmedIcon}`}></i>
+            <h2 className={styles.confirmedTitle}>Payment Confirmed!</h2>
+            <p className={styles.confirmedText}>
+              The restaurant has verified your payment. Enjoy your meal!
+            </p>
+          </div>
+        ) : paymentClaimed ? (
           <div className={styles.confirmedBanner}>
             <i className={`mgc_check_circle_fill ${styles.confirmedIcon}`}></i>
             <h2 className={styles.confirmedTitle}>Payment Claimed!</h2>
             <p className={styles.confirmedText}>
-              We&apos;ve notified the restaurant. They&apos;ll verify your payment shortly.
+              We&apos;ve notified the restaurant. They&apos;ll verify your
+              payment shortly.
             </p>
           </div>
         ) : (
@@ -164,34 +316,36 @@ function PayPageContent() {
 
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Bank Name</span>
-            <span className={styles.detailValue}>
-              {RESTAURANT_BANK.bankName}
-            </span>
+            <span className={styles.detailValue}>{bank.bankName}</span>
           </div>
 
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Account Number</span>
             <div className={styles.detailValueRow}>
               <span className={styles.detailValue}>
-                {RESTAURANT_BANK.accountNumber}
+                {bank.accountNumber}
               </span>
               <button
                 className={`${styles.copyBtn} ${copiedField === "account" ? styles.copiedBtn : ""}`}
                 onClick={() =>
-                  copyToClipboard(RESTAURANT_BANK.accountNumber, "account")
+                  copyToClipboard(bank.accountNumber, "account")
                 }
                 aria-label="Copy account number"
               >
-                <i className={copiedField === "account" ? "mgc_check_line" : "mgc_clipboard_line"}></i>
+                <i
+                  className={
+                    copiedField === "account"
+                      ? "mgc_check_line"
+                      : "mgc_clipboard_line"
+                  }
+                ></i>
               </button>
             </div>
           </div>
 
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Account Name</span>
-            <span className={styles.detailValue}>
-              {RESTAURANT_BANK.accountName}
-            </span>
+            <span className={styles.detailValue}>{bank.accountName}</span>
           </div>
 
           <div className={styles.detailRow}>
@@ -203,7 +357,13 @@ function PayPageContent() {
                 onClick={() => copyToClipboard(reference, "ref")}
                 aria-label="Copy reference"
               >
-                <i className={copiedField === "ref" ? "mgc_check_line" : "mgc_clipboard_line"}></i>
+                <i
+                  className={
+                    copiedField === "ref"
+                      ? "mgc_check_line"
+                      : "mgc_clipboard_line"
+                  }
+                ></i>
               </button>
             </div>
           </div>
@@ -211,7 +371,7 @@ function PayPageContent() {
 
         {/* CTAs */}
         <div className={styles.ctaSection}>
-          {!paymentClaimed && (
+          {!paymentClaimed && !paymentConfirmed && (
             <button
               className={styles.confirmPaymentBtn}
               onClick={handleClaimPayment}
@@ -224,10 +384,12 @@ function PayPageContent() {
             className={styles.orderMoreBtn}
             onClick={() => router.push(`/menu?table=${tableId}`)}
           >
-            Order More
+            {paymentConfirmed ? "Back to Menu" : "Order More"}
           </button>
         </div>
       </div>
+
+      <BottomNav tableId={tableId} />
     </div>
   );
 }

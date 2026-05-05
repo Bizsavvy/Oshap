@@ -151,7 +151,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   padding: var(--spacing-l);
   background: var(--color-surface-container);
   border-radius: var(--radius-md);
@@ -161,6 +161,7 @@
 .amountLabel {
   font-size: var(--caption-md-font-size);
   color: var(--color-secondary-text);
+  line-height: 1;
 }
 
 .amountValue {
@@ -168,6 +169,7 @@
   font-size: var(--h2-font-size);
   font-weight: var(--fw-bold);
   color: var(--color-primary);
+  line-height: 1;
 }
 
 /* CTA */
@@ -233,8 +235,9 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  gap: var(--spacing-s);
   padding: var(--spacing-xl);
-  background: var(--color-primary-container);
+  background: var(--color-success-container, #d4edda);
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-l);
   animation: scaleIn 0.3s ease;
@@ -243,19 +246,20 @@
 .confirmedIcon {
   font-size: 56px;
   margin-bottom: var(--spacing-md);
+  color: var(--color-on-success-container, #155724);
 }
 
 .confirmedTitle {
   font-family: var(--font-poppins, "Poppins", sans-serif);
   font-size: var(--h5-font-size);
   font-weight: var(--fw-bold);
-  color: var(--color-on-primary-container);
-  margin-bottom: var(--spacing-xs);
+  color: var(--color-on-success-container, #155724);
+  margin-bottom: 4px;
 }
 
 .confirmedText {
   font-size: var(--p-font-size);
-  color: var(--color-on-primary-container);
+  color: var(--color-on-success-container, #155724);
   opacity: 0.8;
 }
 

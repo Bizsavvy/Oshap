@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import CategoryTabs from "@/components/CategoryTabs";
 import MenuCard from "@/components/MenuCard";
@@ -159,6 +159,7 @@ const CATEGORIES = [
 
 function MenuPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tableId = searchParams.get("table") || "T1";
   
   const [activeCategory, setActiveCategory] = useState("All");
@@ -166,6 +167,8 @@ function MenuPageContent() {
   const [restaurantName, setRestaurantName] = useState("Aji's Kitchen");
   const [categories, setCategories] = useState(CATEGORIES);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -207,10 +210,11 @@ function MenuPageContent() {
     fetchData();
   }, [tableId]);
 
-  const filteredItems =
-    activeCategory === "All"
-      ? menuItems
-      : menuItems.filter((item) => item.category === activeCategory);
+  const filteredItems = menuItems.filter((item) => {
+    const matchesCategory = activeCategory === "All" || item.category === activeCategory;
+    const matchesSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <CartProvider tableId={tableId}>
@@ -221,17 +225,36 @@ function MenuPageContent() {
             <h1 className={styles.restaurantName}>{restaurantName}</h1>
             <span className={styles.tableBadge}>Table: {tableId}</span>
           </div>
-          <button className={styles.searchButton} aria-label="Search menu">
-            <i className="mgc_search_line" style={{ fontSize: "20px" }}></i>
+          <button
+            className={styles.searchButton}
+            aria-label="Search menu"
+            onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchQuery(""); }}
+          >
+            <i className={searchOpen ? "mgc_close_line" : "mgc_search_line"} style={{ fontSize: "20px" }}></i>
           </button>
         </header>
 
+        {/* Search bar */}
+        {searchOpen && (
+          <div className={styles.searchBar}>
+            <i className="mgc_search_line" style={{ fontSize: "18px", color: "var(--color-secondary-text)" }}></i>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder="Search menu items…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+        )}
+
         {/* Order Together */}
-        <div className={styles.orderTogether}>
+        <div className={styles.orderTogether} onClick={() => router.push(`/orders?table=${tableId}`)}>
           <div className={styles.orderTogetherLeft}>
             <div className={styles.avatarGroup}>
-              <div className={styles.avatar} style={{ backgroundImage: "url('https://i.pravatar.cc/100?img=1')" }} />
-              <div className={styles.avatar} style={{ backgroundImage: "url('https://i.pravatar.cc/100?img=5')" }} />
+              <div className={styles.avatar} style={{ backgroundImage: "url('/avatar1.png')" }} />
+              <div className={styles.avatar} style={{ backgroundImage: "url('/avatar2.png')" }} />
               <div className={`${styles.avatar} ${styles.avatarMore}`}>+3</div>
             </div>
             <span className={styles.orderTogetherText}>Order Together</span>
