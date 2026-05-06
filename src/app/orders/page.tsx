@@ -46,10 +46,10 @@ function OrdersView({ tableId }: { tableId: string }) {
   const [pinInput, setPinInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(false);
+  const [showOthers, setShowOthers] = useState(false);
 
   const [sessionOrders, setSessionOrders] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const [reorderToast, setReorderToast] = useState<string | null>(null);
   const hasFetchedOnce = useRef(false);
 
   // Stable order id for this page visit
@@ -124,8 +124,6 @@ function OrdersView({ tableId }: { tableId: string }) {
     const existing = cartItems.find((i) => i.name === item.name);
     if (existing) {
       updateQuantity(existing.id, existing.quantity + 1);
-      setReorderToast(`${item.name} added to cart!`);
-      setTimeout(() => setReorderToast(null), 2000);
       return;
     }
 
@@ -139,8 +137,6 @@ function OrdersView({ tableId }: { tableId: string }) {
         );
         if (match) {
           addItem({ id: match.id, name: match.name, price: match.price, image: match.image_url });
-          setReorderToast(`${item.name} added to cart!`);
-          setTimeout(() => setReorderToast(null), 2000);
           return;
         }
       }
@@ -161,6 +157,22 @@ function OrdersView({ tableId }: { tableId: string }) {
     ? sessionOrders.filter((o) => o.customer_name !== customerName)
     : [];
   const personalItems = personalOrders.flatMap((o) => o.order_items || []);
+
+  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
+
+  const personalTotal = personalOrders.reduce((sum, o) => {
+    return sum + (o.order_items || []).reduce((itemSum: number, item: any) => {
+      return itemSum + (item.price * (item.quantity || item.qty || 1));
+    }, 0);
+  }, 0);
+
+  const othersTotal = othersOrders.reduce((sum, o) => {
+    return sum + (o.order_items || []).reduce((itemSum: number, item: any) => {
+      return itemSum + (item.price * (item.quantity || item.qty || 1));
+    }, 0);
+  }, 0);
+
+  const groupTotal = personalTotal + othersTotal;
 
   // Collect all unique items from others (for bottom banner)
   const othersItemNames = othersOrders
@@ -326,9 +338,10 @@ function OrdersView({ tableId }: { tableId: string }) {
                     {order.order_items.map((item: any, idx: number) => (
                       <div key={idx} className={styles.itemRow}>
                         <div className={styles.itemLeft}>
-                          <div className={styles.vegDot}>
-                            <div className={styles.vegDotInner} />
-                          </div>
+                          <i 
+                            className="mgc_fork_spoon_line" 
+                            style={{ fontSize: '20px', color: 'var(--color-primary)', marginTop: '2px' }}
+                          ></i>
                           <div className={styles.itemInfo}>
                             <span className={styles.itemName}>{item.name}</span>
                             <span className={styles.itemQty}>
@@ -348,47 +361,94 @@ function OrdersView({ tableId }: { tableId: string }) {
                 </div>
               );
             })}
+            <div className={styles.divider} style={{ marginTop: 'var(--spacing-s)', marginBottom: 'var(--spacing-s)' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--font-poppins)', fontSize: '18px', fontWeight: 'var(--fw-bold)', color: 'var(--color-primary-text)' }}>Your Total</span>
+              <span style={{ fontFamily: 'var(--font-poppins)', fontSize: '18px', fontWeight: 'var(--fw-bold)', color: 'var(--color-primary-text)' }}>{formatPrice(personalTotal)}</span>
+            </div>
+            {session && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-inter)', fontSize: '14px', color: 'var(--color-secondary-text)' }}>Group Total</span>
+                <span style={{ fontFamily: 'var(--font-inter)', fontSize: '14px', color: 'var(--color-secondary-text)' }}>{formatPrice(groupTotal)}</span>
+              </div>
+            )}
           </div>
         )}
       </section>
 
       {/* ──── Others Banner ──── */}
-      {session && othersItemNames.length > 0 && (
-        <div className={styles.othersBanner}>
-          <div className={styles.othersBannerLeft}>
-            <span className={styles.othersBannerTitle}>
-              ▶ See what others are ordering 🤔
-            </span>
-            <span className={styles.othersBannerItems}>
-              {othersItemNames.join(", ")}
-            </span>
-          </div>
-          <div className={styles.othersAvatars}>
-            <div
-              className={styles.othersAvatar}
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=80&q=60')",
-              }}
-            />
-            <div
-              className={styles.othersAvatar}
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=80&q=60')",
-              }}
-            />
-          </div>
+      {session && othersOrders.length > 0 && (
+        <div 
+          className={`${styles.othersBanner} ${showOthers ? styles.othersBannerExpanded : ""}`}
+          onClick={() => { if (!showOthers) setShowOthers(true); }}
+        >
+          {showOthers ? (
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} onClick={(e) => { e.stopPropagation(); setShowOthers(false); }}>
+                <span className={styles.othersBannerTitle}>
+                  ▼ Others' Orders (Total: {formatPrice(othersTotal)})
+                </span>
+                <i className="mgc_close_line" style={{ fontSize: "20px", cursor: "pointer" }}></i>
+              </div>
+              <div style={{ maxHeight: "40vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px", paddingRight: "8px" }}>
+                {othersOrders.map((o, idx) => {
+                  if (!o.order_items || o.order_items.length === 0) return null;
+                  return (
+                    <div key={o.id || idx}>
+                      <p style={{ fontSize: "14px", fontWeight: "bold", color: "var(--color-outline-variant)", marginBottom: "8px" }}>
+                        {o.customer_name || "Guest"}'s Order
+                      </p>
+                      <div className={styles.itemsList}>
+                        {o.order_items.map((item: any, i: number) => (
+                          <div key={i} className={styles.itemRow} style={{ color: "var(--color-inverse-on-surface)" }}>
+                            <div className={styles.itemLeft}>
+                              <div className={styles.itemInfo}>
+                                <span className={styles.itemName} style={{ color: "var(--color-inverse-on-surface)" }}>{item.name}</span>
+                                <span className={styles.itemQty} style={{ color: "var(--color-outline-variant)" }}>
+                                  Qty {item.quantity || item.qty}
+                                </span>
+                              </div>
+                            </div>
+                            <span style={{ fontWeight: "bold" }}>{formatPrice(item.price * (item.quantity || item.qty || 1))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className={styles.othersBannerLeft}>
+                <span className={styles.othersBannerTitle}>
+                  ▶ See what others are ordering 🤔
+                </span>
+                <span className={styles.othersBannerItems}>
+                  {othersItemNames.join(", ")}
+                </span>
+              </div>
+              <div className={styles.othersAvatars}>
+                <div
+                  className={styles.othersAvatar}
+                  style={{
+                    backgroundImage:
+                      "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=80&q=60')",
+                  }}
+                />
+                <div
+                  className={styles.othersAvatar}
+                  style={{
+                    backgroundImage:
+                      "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=80&q=60')",
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Reorder toast */}
-      {reorderToast && (
-        <div className={styles.reorderToast}>
-          <i className="mgc_check_circle_fill" style={{ fontSize: '18px' }}></i>
-          {reorderToast}
-        </div>
-      )}
     </div>
   );
 }
