@@ -70,14 +70,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [customerName]);
 
+  const getUnclaimedOrderIds = (tableId: string): string[] => {
+    try {
+      return JSON.parse(
+        sessionStorage.getItem(`oshap-my-order-ids-${tableId}`) || "[]"
+      );
+    } catch {
+      return [];
+    }
+  };
+
   const startSession = async (tableId: string) => {
     setIsLoading(true);
     setError(null);
     try {
+      const unclaimed_order_ids = getUnclaimedOrderIds(tableId);
       const res = await fetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId, action: "START" }),
+        body: JSON.stringify({
+          tableId,
+          action: "START",
+          unclaimed_order_ids,
+          customer_name: customerName,
+        }),
       });
       if (!res.ok) throw new Error("Failed to start session");
       const data = await res.json();
@@ -95,10 +111,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
+      const unclaimed_order_ids = getUnclaimedOrderIds(tableId);
       const res = await fetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId, pin, action: "JOIN" }),
+        body: JSON.stringify({
+          tableId,
+          pin,
+          action: "JOIN",
+          unclaimed_order_ids,
+          customer_name: customerName,
+        }),
       });
       if (!res.ok) {
         const d = await res.json();

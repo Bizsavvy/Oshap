@@ -30,10 +30,16 @@ export async function GET(request: Request) {
         price
       )
     `)
-    .in("status", ["CREATED", "PAYMENT_PENDING"])
+    .in("status", ["CREATED", "PREPARING", "READY", "PAYMENT_PENDING"])
     .order("created_at", { ascending: false });
 
-  if (sessionId) {
+  if (sessionId && tableId) {
+    // Include orders that belong to this session OR were placed on this
+    // table before the session was created (session_id is null).
+    query = query
+      .eq("table_id", tableId)
+      .or(`session_id.eq.${sessionId},session_id.is.null`);
+  } else if (sessionId) {
     query = query.eq("session_id", sessionId);
   } else if (tableId) {
     // Orders for the whole table (with or without session)

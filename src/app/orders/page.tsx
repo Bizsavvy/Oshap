@@ -67,7 +67,7 @@ function OrdersView({ tableId }: { tableId: string }) {
       }
       try {
         const queryParams = session?.id 
-          ? `session_id=${session.id}` 
+          ? `session_id=${session.id}&table_id=${tableId}` 
           : `table_id=${tableId}`;
 
         const res = await fetch(`/api/session/orders?${queryParams}`);

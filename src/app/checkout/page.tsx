@@ -90,6 +90,17 @@ function OrderView({
         })
       );
 
+      // Track all order IDs placed from this device so they can be
+      // claimed when the user starts or joins a session later.
+      const storedIds = JSON.parse(
+        sessionStorage.getItem(`oshap-my-order-ids-${tableId}`) || "[]"
+      );
+      storedIds.push(orderData.order_id);
+      sessionStorage.setItem(
+        `oshap-my-order-ids-${tableId}`,
+        JSON.stringify(storedIds)
+      );
+
       clearCart();
       router.push(`/orders?table=${tableId}`);
     } catch (err) {
