@@ -3,6 +3,8 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
+import { useSession } from "@/context/SessionContext";
+import { getDeviceToken } from "@/lib/device-token";
 import styles from "./page.module.css";
 
 interface OrderData {
@@ -31,6 +33,7 @@ function PayPageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { session } = useSession();
 
   // Poll server for exact state
   useEffect(() => {
@@ -38,7 +41,12 @@ function PayPageContent() {
 
     async function loadData() {
       try {
-        const tableRes = await fetch(`/api/table/${tableId}`);
+        const deviceToken = getDeviceToken();
+        const sessionId = session?.id;
+        const qp = new URLSearchParams();
+        if (deviceToken) qp.set("device_token", deviceToken);
+        if (sessionId) qp.set("session_id", sessionId);
+        const tableRes = await fetch(`/api/table/${tableId}?${qp.toString()}`);
         if (tableRes.ok) {
           const tableData = await tableRes.json();
           if (!isMounted) return;
@@ -70,7 +78,7 @@ function PayPageContent() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [tableId]);
+  }, [tableId, session?.id]);
 
   const bank = bankDetails || {
     bankName: "Access Bank",

@@ -7,6 +7,7 @@ import { useSession } from "@/context/SessionContext";
 import BottomNav from "@/components/BottomNav";
 import CartBar from "@/components/CartBar";
 import CartDrawer from "@/components/CartDrawer";
+import { getDeviceToken } from "@/lib/device-token";
 import styles from "./page.module.css";
 
 function OrdersPageContent() {
@@ -66,9 +67,10 @@ function OrdersView({ tableId }: { tableId: string }) {
         setIsLoadingOrders(true);
       }
       try {
+        const deviceToken = getDeviceToken();
         const queryParams = session?.id 
-          ? `session_id=${session.id}&table_id=${tableId}` 
-          : `table_id=${tableId}`;
+          ? `session_id=${session.id}&table_id=${tableId}&device_token=${deviceToken}` 
+          : `table_id=${tableId}&device_token=${deviceToken}`;
 
         const res = await fetch(`/api/session/orders?${queryParams}`);
         if (res.ok) {

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
 import BottomNav from "@/components/BottomNav";
+import { getDeviceToken } from "@/lib/device-token";
 import styles from "./page.module.css";
 
 function OrderPageContent() {
@@ -51,6 +52,8 @@ function OrderView({
       if (!tableRes.ok) throw new Error("Failed to fetch table details");
       const tableData = await tableRes.json();
       
+      const device_token = getDeviceToken();
+
       // 2. Submit order
       const payload = {
         table: tableId,
@@ -58,6 +61,7 @@ function OrderView({
         items: items.map(i => ({ name: i.name, qty: i.quantity, price: i.price })),
         session_id: session?.id || null,
         customer_name: customerName || null,
+        device_token,
       };
 
       const orderRes = await fetch("/api/order", {

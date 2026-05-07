@@ -2,7 +2,7 @@ import { createServerClient } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { table, restaurant_id, items, session_id, customer_name } = body;
+  const { table, restaurant_id, items, session_id, customer_name, device_token } = body;
 
   if (!table || !restaurant_id || !items?.length) {
     return Response.json(
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       reference,
       session_id: validSessionId,
       customer_name,
+      device_token,
     })
     .select()
     .single();
