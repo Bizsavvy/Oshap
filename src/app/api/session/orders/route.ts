@@ -30,6 +30,7 @@ export async function GET(request: Request) {
         price
       )
     `)
+    .in("status", ["CREATED", "PAYMENT_PENDING"])
     .order("created_at", { ascending: false });
 
   if (sessionId) {

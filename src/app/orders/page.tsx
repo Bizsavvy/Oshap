@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
@@ -386,7 +386,7 @@ function OrdersView({ tableId }: { tableId: string }) {
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} onClick={(e) => { e.stopPropagation(); setShowOthers(false); }}>
                 <span className={styles.othersBannerTitle}>
-                  ▼ Others' Orders (Total: {formatPrice(othersTotal)})
+                  ▼ Others&rsquo; Orders (Total: {formatPrice(othersTotal)})
                 </span>
                 <i className="mgc_close_line" style={{ fontSize: "20px", cursor: "pointer" }}></i>
               </div>
@@ -396,7 +396,7 @@ function OrdersView({ tableId }: { tableId: string }) {
                   return (
                     <div key={o.id || idx}>
                       <p style={{ fontSize: "14px", fontWeight: "bold", color: "var(--color-outline-variant)", marginBottom: "8px" }}>
-                        {o.customer_name || "Guest"}'s Order
+                        {o.customer_name || "Guest"}&rsquo;s Order
                       </p>
                       <div className={styles.itemsList}>
                         {o.order_items.map((item: any, i: number) => (

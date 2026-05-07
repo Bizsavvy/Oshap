@@ -1,6 +1,9 @@
 import { createServerClient } from "@/lib/supabase";
+import { validateAdminPin, validateAdminResponse } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
+  if (!validateAdminPin(request)) return validateAdminResponse();
+
   const body = await request.json();
   const { table_id } = body;
 
@@ -39,24 +42,29 @@ export async function POST(request: Request) {
     .update({ status: "VERIFIED" })
     .in("order_id", orderIds);
 
-  // 4. Check if there are any CREATED (unpaid) orders left on this table
+  // 4. Auto-close: check if any unpaid orders remain on this table
   const { data: unpaidOrders } = await supabase
     .from("orders")
     .select("id")
     .eq("table_id", table_id)
     .eq("status", "CREATED");
 
-  // If no unpaid orders are left, we can close the table and clear sessions
+  let auto_closed = false;
+
   if (!unpaidOrders || unpaidOrders.length === 0) {
-    // Note: We used to delete the table_sessions here.
-    // However, verifying a payment does NOT mean the guests have left the table.
-    // They may still want to order desserts or more drinks! 
-    // A separate "Close Table" action would be required to actually clear the session.
-    
-    // We can also optionally update table status to OPEN to reset it.
-    // The previous status was likely OPEN anyway, as table statuses are mainly used 
-    // if we want to track reserved/occupied states.
+    // All orders are paid — session is complete. Clear sessions for a clean slate.
+    // With ON DELETE SET NULL, orders survive with session_id = NULL.
+    await supabase
+      .from("table_sessions")
+      .delete()
+      .eq("table_id", table_id);
+
+    auto_closed = true;
   }
 
-  return Response.json({ success: true, verified_count: orderIds.length });
+  return Response.json({
+    success: true,
+    verified_count: orderIds.length,
+    auto_closed,
+  });
 }

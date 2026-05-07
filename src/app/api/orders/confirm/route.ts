@@ -51,31 +51,11 @@ export async function POST(request: Request) {
     .update({ status: "CONFIRMED" })
     .in("order_id", confirmableIds);
 
-  // Get the unique table IDs from confirmed orders
-  const tableIds = [...new Set(orders.map((o) => o.table_id))];
-  const closedTables: string[] = [];
-
-  for (const tableId of tableIds) {
-    // Check if there are any remaining active orders on this table
-    const { data: remaining } = await supabase
-      .from("orders")
-      .select("id")
-      .eq("table_id", tableId)
-      .in("status", ["CREATED", "PAYMENT_PENDING"]);
-
-    if (!remaining || remaining.length === 0) {
-      // No active orders left — close the table
-      await supabase
-        .from("tables")
-        .update({ status: "CLOSED" })
-        .eq("id", tableId);
-      closedTables.push(tableId);
-    }
-  }
+  // Table closing is now handled by /api/admin/verify (auto-close on payment verification).
+  // This route only confirms order status — no table lifecycle side effects.
 
   return Response.json({
     success: true,
     confirmed: confirmableIds.length,
-    closed_tables: closedTables,
   });
 }

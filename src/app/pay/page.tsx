@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import styles from "./page.module.css";
@@ -172,7 +172,7 @@ function PayPageContent() {
           <i className={`mgc_time_line ${styles.emptyIcon}`}></i>
           <h2 className={styles.emptyTitle}>Payment Claimed</h2>
           <p className={styles.emptyText}>
-            We've notified the restaurant. They will verify your payment of {formatPrice(pendingPayments.total)} shortly.
+            We&apos;ve notified the restaurant. They will verify your payment of {formatPrice(pendingPayments.total)} shortly.
           </p>
           <button className={styles.backToMenuBtn} onClick={() => router.push(`/menu?table=${tableId}`)}>
             Order More

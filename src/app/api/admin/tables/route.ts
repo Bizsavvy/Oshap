@@ -1,16 +1,17 @@
 import { createServerClient } from "@/lib/supabase";
+import { validateAdminPin, validateAdminResponse } from "@/lib/admin-auth";
+import { DEMO_RESTAURANT_ID } from "@/lib/constants";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!validateAdminPin(request)) return validateAdminResponse();
+
   const supabase = createServerClient();
-
-  // For MVP demo, hardcode the restaurant ID
-  const restaurantId = "00000000-0000-0000-0000-000000000001";
 
   // Fetch all tables for the restaurant
   const { data: tables, error: tableError } = await supabase
     .from("tables")
     .select("*")
-    .eq("restaurant_id", restaurantId)
+    .eq("restaurant_id", DEMO_RESTAURANT_ID)
     .order("id");
 
   if (tableError || !tables) {
@@ -21,7 +22,7 @@ export async function GET() {
   const { data: activeOrders, error: orderError } = await supabase
     .from("orders")
     .select("*, order_items(*)")
-    .eq("restaurant_id", restaurantId)
+    .eq("restaurant_id", DEMO_RESTAURANT_ID)
     .in("status", ["CREATED", "PAYMENT_PENDING"]);
 
   if (orderError) {
