@@ -17,7 +17,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     checkAuth();
-    // Re-check periodically to detect login/logout from child pages
     const interval = setInterval(checkAuth, 500);
     return () => clearInterval(interval);
   }, []);
@@ -26,71 +25,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <>{children}</>;
   }
 
+  const tabs = [
+    { href: "/admin", label: "Tables", exact: true },
+    { href: "/admin/menu", label: "Menu" },
+    { href: "/admin/kitchen", label: "Kitchen" },
+    { href: "/admin/history", label: "History" },
+  ];
+
   return (
     <div>
       <nav style={{
         display: "flex",
-        gap: "16px",
-        padding: "12px 16px",
+        gap: "4px",
+        padding: "8px 16px",
         background: "var(--color-surface-container)",
-        borderBottom: "1px solid var(--color-outline-variant)",
+        borderBottom: "1px solid var(--color-surface-container-high)",
+        overflowX: "auto",
       }}>
-        <Link
-          href="/admin"
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontWeight: 600,
-            fontSize: "14px",
-            textDecoration: "none",
-            background: pathname === "/admin" ? "var(--color-primary)" : "transparent",
-            color: pathname === "/admin" ? "#fff" : "var(--color-primary-text)",
-          }}
-        >
-          Tables
-        </Link>
-        <Link
-          href="/admin/menu"
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontWeight: 600,
-            fontSize: "14px",
-            textDecoration: "none",
-            background: pathname.startsWith("/admin/menu") ? "var(--color-primary)" : "transparent",
-            color: pathname.startsWith("/admin/menu") ? "#fff" : "var(--color-primary-text)",
-          }}
-        >
-          Menu
-        </Link>
-        <Link
-          href="/admin/kitchen"
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontWeight: 600,
-            fontSize: "14px",
-            textDecoration: "none",
-            background: pathname.startsWith("/admin/kitchen") ? "var(--color-primary)" : "transparent",
-            color: pathname.startsWith("/admin/kitchen") ? "#fff" : "var(--color-primary-text)",
-          }}
-        >
-          Kitchen
-        </Link>
-        <Link
-          href="/admin/history"
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontWeight: 600,
-            fontSize: "14px",
-            textDecoration: "none",
-            background: pathname.startsWith("/admin/history") ? "var(--color-primary)" : "transparent",
-            color: pathname.startsWith("/admin/history") ? "#fff" : "var(--color-primary-text)",
-          }}
-        >
-          History
-        </Link>
+        {tabs.map((tab) => {
+          const isActive = tab.exact
+            ? pathname === tab.href
+            : pathname.startsWith(tab.href);
+
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontWeight: 600,
+                fontSize: "13px",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                transition: "background 0.15s, color 0.15s",
+                background: isActive ? "var(--color-primary)" : "transparent",
+                color: isActive ? "#fff" : "var(--color-secondary-text)",
+              }}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
       </nav>
       {children}
     </div>

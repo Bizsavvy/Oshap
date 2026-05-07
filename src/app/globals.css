@@ -11,6 +11,18 @@
   --fw-medium: 500;
   --fw-semibold: 600;
   --fw-bold: 700;
+  --fw-black: 900;
+
+  /* Extra radius */
+  --radius-full: 9999px;
+
+  /* Extra typography */
+  --title-lg-font-size: 22px;
+  --title-md-font-size: 18px;
+  --title-sm-font-size: 16px;
+  --body-md-font-size: 16px;
+  --body-sm-font-size: 14px;
+  --display-sm-font-size: 28px;
 }
 
 [data-theme="dark"] {
