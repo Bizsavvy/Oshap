@@ -304,7 +304,7 @@ function OrdersView({ tableId }: { tableId: string }) {
       {/* ──── Personal Order Items ──── */}
       <section className={styles.myOrderSection}>
         <h2 className={styles.sectionTitle}>
-          {customerName ? `${customerName}'s Order` : "Your Order"}
+          {session && customerName && othersOrders.length > 0 ? `${customerName}'s Order` : "Your Order"}
         </h2>
         <div className={styles.divider} />
 
