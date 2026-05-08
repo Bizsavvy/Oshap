@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
@@ -33,6 +33,32 @@ export default function MenuManagement() {
   const [showNewForm, setShowNewForm] = useState(false);
 
   const [form, setForm] = useState({ name: "", price: "", category: "Meals", description: "", image_url: "" });
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        headers: { "x-admin-pin": sessionStorage.getItem(AUTH_KEY) || "" },
+        body: data,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Upload failed");
+        return;
+      }
+      const { url } = await res.json();
+      setForm((prev) => ({ ...prev, image_url: url }));
+    } catch {
+      alert("Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const fetchItems = async () => {
     try {
@@ -168,11 +194,37 @@ export default function MenuManagement() {
                 <option>Sides</option>
               </select>
               <input className={styles.formInput} placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              <input className={styles.formInput} placeholder="Image URL" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+              {/* Image upload */}
+              <div className={styles.imageField}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }}
+                />
+                <button
+                  type="button"
+                  className={styles.uploadBtn}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? "Uploading…" : "📁 Upload Image"}
+                </button>
+                <input
+                  className={styles.formInput}
+                  placeholder="Or paste image URL"
+                  value={form.image_url}
+                  onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                />
+                {form.image_url && (
+                  <img src={form.image_url} alt="Preview" className={styles.imagePreview} />
+                )}
+              </div>
             </div>
             <div className={styles.editActions}>
               <button className={styles.cancelBtn} onClick={() => setShowNewForm(false)}>Cancel</button>
-              <button className={styles.saveBtn} onClick={handleCreate} disabled={savingId === "new"}>
+              <button className={styles.saveBtn} onClick={handleCreate} disabled={savingId === "new" || isUploading}>
                 {savingId === "new" ? "Saving..." : "Create"}
               </button>
             </div>
@@ -196,11 +248,37 @@ export default function MenuManagement() {
                       <option>Sides</option>
                     </select>
                     <input className={styles.formInput} placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                    <input className={styles.formInput} placeholder="Image URL" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+                    {/* Image upload */}
+                    <div className={styles.imageField}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }}
+                      />
+                      <button
+                        type="button"
+                        className={styles.uploadBtn}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? "Uploading…" : "📁 Upload Image"}
+                      </button>
+                      <input
+                        className={styles.formInput}
+                        placeholder="Or paste image URL"
+                        value={form.image_url}
+                        onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                      />
+                      {form.image_url && (
+                        <img src={form.image_url} alt="Preview" className={styles.imagePreview} />
+                      )}
+                    </div>
                   </div>
                   <div className={styles.editActions}>
                     <button className={styles.cancelBtn} onClick={() => setEditingId(null)}>Cancel</button>
-                    <button className={styles.saveBtn} onClick={() => handleSave(item.id)} disabled={savingId === item.id}>
+                    <button className={styles.saveBtn} onClick={() => handleSave(item.id)} disabled={savingId === item.id || isUploading}>
                       {savingId === item.id ? "Saving..." : "Save"}
                     </button>
                   </div>
