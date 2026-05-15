@@ -15,8 +15,8 @@ interface SessionContextType {
   session: TableSession | null;
   customerName: string;
   setCustomerName: (name: string) => void;
-  startSession: (tableId: string) => Promise<TableSession>;
-  joinSession: (pin: string, tableId: string) => Promise<TableSession | null>;
+  startSession: (tableId: string, name?: string) => Promise<TableSession>;
+  joinSession: (pin: string, tableId: string, name?: string) => Promise<TableSession | null>;
   clearSession: () => void;
   isLoading: boolean;
   error: string | null;
@@ -80,9 +80,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const startSession = async (tableId: string) => {
+  const startSession = async (tableId: string, name?: string) => {
     setIsLoading(true);
     setError(null);
+    const resolvedName = name ?? customerName;
     try {
       const unclaimed_order_ids = getUnclaimedOrderIds(tableId);
       const res = await fetch("/api/session", {
@@ -92,24 +93,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           tableId,
           action: "START",
           unclaimed_order_ids,
-          customer_name: customerName,
+          customer_name: resolvedName,
         }),
       });
       if (!res.ok) throw new Error("Failed to start session");
       const data = await res.json();
       setSession(data.session);
       return data.session;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const joinSession = async (pin: string, tableId: string) => {
+  const joinSession = async (pin: string, tableId: string, name?: string) => {
     setIsLoading(true);
     setError(null);
+    const resolvedName = name ?? customerName;
     try {
       const unclaimed_order_ids = getUnclaimedOrderIds(tableId);
       const res = await fetch("/api/session", {
@@ -120,7 +123,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           pin,
           action: "JOIN",
           unclaimed_order_ids,
-          customer_name: customerName,
+          customer_name: resolvedName,
         }),
       });
       if (!res.ok) {
@@ -130,8 +133,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       setSession(data.session);
       return data.session;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);

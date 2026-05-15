@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { PAYMENT_REFERENCE_PREFIX } from "@/lib/constants";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -9,6 +10,10 @@ export async function POST(request: Request) {
       { error: "Missing required fields: table, restaurant_id, items" },
       { status: 400 }
     );
+  }
+
+  if (typeof table !== "string" || table.length > 50) {
+    return Response.json({ error: "Invalid table ID" }, { status: 400 });
   }
 
   const supabase = createServerClient();
@@ -36,27 +41,25 @@ export async function POST(request: Request) {
 
   // Generate reference
   const rand = Math.floor(1000 + Math.random() * 9000);
-  const reference = `OSHAP-${table}-${rand}`;
+  const reference = `${PAYMENT_REFERENCE_PREFIX}${table}-${rand}`;
 
-  // Validate and potentially recreate session_id
-  let validSessionId = session_id;
+  // Validate session exists if provided — do not auto-recreate with a default PIN
   if (session_id) {
     const { data: sessionData } = await supabase
       .from("table_sessions")
       .select("id")
       .eq("id", session_id)
       .single();
-    
+
     if (!sessionData) {
-      // Re-create the missing session so the user's browser doesn't get orphaned
-      await supabase.from("table_sessions").insert({
-        id: session_id,
-        table_id: table,
-        pin: "0000", // Default pin if recreated
-        status: "ACTIVE"
-      });
+      return Response.json(
+        { error: "Session not found. Please re-join or start a new session." },
+        { status: 400 }
+      );
     }
   }
+
+  const validSessionId = session_id;
 
   // Create order
   const { data: order, error: orderError } = await supabase

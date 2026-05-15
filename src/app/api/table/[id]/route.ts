@@ -5,6 +5,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  if (!id || id.length > 50) {
+    return Response.json({ error: "Invalid table ID" }, { status: 400 });
+  }
+
   const { searchParams } = new URL(request.url);
   const deviceToken = searchParams.get("device_token");
   const sessionId = searchParams.get("session_id");
@@ -13,7 +18,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("tables")
-    .select("*, restaurants(*)")
+    .select("id, status, restaurants(id, name, bank_name, account_number, account_name)")
     .eq("id", id)
     .single();
 

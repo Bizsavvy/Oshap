@@ -31,29 +31,45 @@ export async function POST(request: Request) {
     return Response.json({ error: "Orders not found" }, { status: 404 });
   }
 
-  // Process all orders
-  for (const order of orders) {
-    // Create or update payment record
-    const { error: paymentError } = await supabase.from("payments").upsert(
-      {
-        order_id: order.id,
-        amount: order.total,
-        status: "CLAIMED",
-        proof_url: proof_url || null,
-      },
-      { onConflict: "order_id" }
-    );
+  // Process all orders atomically — if any step fails, roll back the ones that succeeded
+  const results = await Promise.allSettled(
+    orders.map(async (order) => {
+      const { error: paymentError } = await supabase.from("payments").upsert(
+        {
+          order_id: order.id,
+          amount: order.total,
+          status: "CLAIMED",
+          proof_url: proof_url || null,
+        },
+        { onConflict: "order_id" }
+      );
+      if (paymentError) throw new Error(`Payment upsert failed for order ${order.id}: ${paymentError.message}`);
 
-    if (paymentError) {
-      console.error("Payment upsert error for order", order.id, paymentError);
-      // We log but continue to try other orders if some fail
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({ status: "PAYMENT_PENDING" })
+        .eq("id", order.id);
+      if (orderError) throw new Error(`Order update failed for order ${order.id}: ${orderError.message}`);
+    })
+  );
+
+  const failures = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+
+  if (failures.length > 0) {
+    // Roll back any orders that did succeed to avoid partial state
+    const succeededIds = orders
+      .filter((_, i) => results[i].status === "fulfilled")
+      .map((o) => o.id);
+
+    if (succeededIds.length > 0) {
+      await supabase.from("orders").update({ status: "CREATED" }).in("id", succeededIds);
+      await supabase.from("payments").update({ status: "NOT_PAID" }).in("order_id", succeededIds);
     }
 
-    // Update order status
-    await supabase
-      .from("orders")
-      .update({ status: "PAYMENT_PENDING" })
-      .eq("id", order.id);
+    return Response.json(
+      { error: "Payment confirmation failed. Please try again.", details: failures.map((f) => f.reason?.message) },
+      { status: 500 }
+    );
   }
 
   return Response.json({ success: true, processed: orders.length });

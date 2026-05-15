@@ -6,6 +6,7 @@ import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
 import BottomNav from "@/components/BottomNav";
 import { getDeviceToken } from "@/lib/device-token";
+import { formatPrice } from "@/lib/utils";
 import styles from "./page.module.css";
 
 function OrderPageContent() {
@@ -35,8 +36,6 @@ function OrderView({
 }) {
   const { items, totalPrice, clearCart } = useCart();
   const { session, customerName } = useSession();
-
-  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
 
   const generateReference = () => {
     const rand = Math.floor(1000 + Math.random() * 9000);
@@ -192,7 +191,7 @@ function OrderView({
           onClick={handleConfirmOrder}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Placing Order..." : "Confirm Order"}
+          {isSubmitting ? <><span className="btn-spinner" /> Placing Order…</> : "Confirm Order"}
         </button>
       </div>
     </div>

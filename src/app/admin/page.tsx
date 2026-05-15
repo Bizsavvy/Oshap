@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatPrice } from "@/lib/utils";
 import styles from "./page.module.css";
 
 const AUTH_KEY = "oshap-admin-auth";
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
     if (!authenticated) return;
     setIsLoading(true);
     fetchTables();
-    const interval = setInterval(fetchTables, 5000);
+    const interval = setInterval(fetchTables, 8000);
     return () => clearInterval(interval);
   }, [authenticated]);
 
@@ -162,8 +163,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
-
   // --- Login Screen ---
   if (!authenticated) {
     return (
@@ -194,7 +193,7 @@ export default function AdminDashboard() {
               onClick={handleLogin}
               disabled={isLoggingIn || pinInput.length < 3}
             >
-              {isLoggingIn ? "Verifying..." : "Login"}
+              {isLoggingIn ? <><span className="btn-spinner" /> Verifying…</> : "Login"}
             </button>
           </div>
         </div>
@@ -222,9 +221,8 @@ export default function AdminDashboard() {
       <header className={styles.header}>
         <h1 className={styles.headerTitle}>Waiter Dashboard</h1>
         <div className={styles.headerActions}>
-          <button className={styles.refreshBtn} onClick={() => { setIsLoading(true); fetchTables(); }}>
-            <i className={`mgc_refresh_3_line ${styles.refreshIcon}`}></i>
-            Refresh
+          <button className={styles.refreshBtn} onClick={() => { setIsLoading(true); fetchTables(); }} disabled={isLoading}>
+            {isLoading ? <><span className="btn-spinner" /> Refreshing…</> : <><i className={`mgc_refresh_3_line ${styles.refreshIcon}`}></i> Refresh</>}
           </button>
           <button className={styles.logoutBtn} onClick={handleLogout}>
             <i className={`mgc_exit_line ${styles.logoutIcon}`}></i>
@@ -303,7 +301,7 @@ export default function AdminDashboard() {
                     onClick={() => handleVerify(table.id)}
                     disabled={verifyingTable === table.id}
                   >
-                    {verifyingTable === table.id ? "Verifying..." : "Verify Payment"}
+                    {verifyingTable === table.id ? <><span className="btn-spinner" /> Verifying…</> : "Verify Payment"}
                   </button>
                 )}
                 {!isEmpty && closingTable === table.id && (
@@ -323,18 +321,21 @@ export default function AdminDashboard() {
                     <button
                       className={styles.clearPaidBtn}
                       onClick={() => handleClearWithReason(table.id, "paid")}
+                      disabled={closingTable === table.id}
                     >
-                      <i className="mgc_wallet_4_line" /> Paid (Cash/Transfer)
+                      {closingTable === table.id ? <><span className="btn-spinner" /> Clearing…</> : <><i className="mgc_wallet_4_line" /> Paid (Cash/Transfer)</>}
                     </button>
                     <button
                       className={styles.clearAbandonedBtn}
                       onClick={() => handleClearWithReason(table.id, "abandoned")}
+                      disabled={closingTable === table.id}
                     >
-                      <i className="mgc_exit_line" /> Abandoned / Left
+                      {closingTable === table.id ? <><span className="btn-spinner" /> Clearing…</> : <><i className="mgc_exit_line" /> Abandoned / Left</>}
                     </button>
                     <button
                       className={styles.clearCancelBtn}
                       onClick={() => setClearPromptTable(null)}
+                      disabled={closingTable === table.id}
                     >
                       Cancel
                     </button>

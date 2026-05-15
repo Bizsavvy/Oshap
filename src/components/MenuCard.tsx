@@ -1,6 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import { useCart } from "@/context/CartContext";
+import { formatPrice } from "@/lib/utils";
 import styles from "./MenuCard.module.css";
 
 interface MenuCardProps {
@@ -11,7 +13,7 @@ interface MenuCardProps {
   image?: string;
 }
 
-export default function MenuCard({
+const MenuCard = memo(function MenuCard({
   id,
   name,
   price,
@@ -21,10 +23,6 @@ export default function MenuCard({
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find((i) => i.id === id);
   const quantity = cartItem?.quantity ?? 0;
-
-  const formatPrice = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
-  };
 
   return (
     <article className={styles.card}>
@@ -76,4 +74,6 @@ export default function MenuCard({
       </div>
     </article>
   );
-}
+});
+
+export default MenuCard;

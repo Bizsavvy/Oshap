@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import { useSession } from "@/context/SessionContext";
 import { getDeviceToken } from "@/lib/device-token";
+import { formatPrice } from "@/lib/utils";
 import styles from "./page.module.css";
 
 interface OrderData {
@@ -72,7 +73,7 @@ function PayPageContent() {
     }
 
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 8000);
 
     return () => {
       isMounted = false;
@@ -85,8 +86,6 @@ function PayPageContent() {
     accountNumber: "0123456789",
     accountName: "Aji's Kitchen Ltd",
   };
-
-  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
 
   const copyToClipboard = useCallback(async (text: string, field: string) => {
     try {
@@ -275,7 +274,7 @@ function PayPageContent() {
         {/* CTAs */}
         <div className={styles.ctaSection}>
           <button className={styles.confirmPaymentBtn} onClick={handleClaimPayment} disabled={isSubmitting}>
-            {isSubmitting ? "Sending..." : "I've Sent the Money"}
+            {isSubmitting ? <><span className="btn-spinner" /> Sending…</> : "I've Sent the Money"}
           </button>
           <button className={styles.orderMoreBtn} onClick={() => router.push(`/menu?table=${tableId}`)}>
             Order More

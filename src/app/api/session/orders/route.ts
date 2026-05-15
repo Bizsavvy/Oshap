@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       )
     `)
     .in("status", ["CREATED", "PREPARING", "READY", "PAYMENT_PENDING"])
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   if (sessionId && tableId) {
     // Include orders that belong to this session OR were placed on this

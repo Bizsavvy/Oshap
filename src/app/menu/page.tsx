@@ -164,9 +164,9 @@ function MenuPageContent() {
   const tableId = searchParams.get("table") || "T1";
   
   const [activeCategory, setActiveCategory] = useState("All");
-  const [menuItems, setMenuItems] = useState(DEMO_MENU);
-  const [restaurantName, setRestaurantName] = useState("Aji's Kitchen");
-  const [categories, setCategories] = useState(CATEGORIES);
+  const [menuItems, setMenuItems] = useState<typeof DEMO_MENU>([]);
+  const [restaurantName, setRestaurantName] = useState("");
+  const [categories, setCategories] = useState<typeof CATEGORIES>([{ name: "All" }]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -197,8 +197,8 @@ function MenuPageContent() {
             setMenuItems(menuData);
             
             // Extract unique categories
-            const cats = new Set(menuData.map((item: any) => item.category));
-            setCategories([{ name: "All" }, ...Array.from(cats).map(name => ({ name: name as string }))]);
+            const cats = new Set(menuData.map((item: { category: string }) => item.category));
+            setCategories([{ name: "All" }, ...Array.from(cats).map((name) => ({ name }))]);
           }
         }
       } catch (err) {
@@ -254,8 +254,8 @@ function MenuPageContent() {
         <div className={styles.orderTogether} onClick={() => router.push(`/orders?table=${tableId}`)}>
           <div className={styles.orderTogetherLeft}>
             <div className={styles.avatarGroup}>
-              <div className={styles.avatar} style={{ backgroundImage: "url('/avatar1.png')" }} />
-              <div className={styles.avatar} style={{ backgroundImage: "url('/avatar2.png')" }} />
+              <div className={styles.avatar} role="img" aria-label="Customer avatar" style={{ backgroundImage: "url('/avatar1.png')" }} />
+              <div className={styles.avatar} role="img" aria-label="Customer avatar" style={{ backgroundImage: "url('/avatar2.png')" }} />
               <div className={`${styles.avatar} ${styles.avatarMore}`}>+3</div>
             </div>
             <span className={styles.orderTogetherText}>Order Together</span>
@@ -285,7 +285,7 @@ function MenuPageContent() {
             </div>
           ) : (
             <div className={styles.itemsList}>
-              {filteredItems.map((item: any) => (
+              {filteredItems.map((item) => (
                 <MenuCard
                   key={item.id}
                   id={item.id}

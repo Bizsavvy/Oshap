@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { useSession } from "@/context/SessionContext";
@@ -8,7 +8,23 @@ import BottomNav from "@/components/BottomNav";
 import CartBar from "@/components/CartBar";
 import CartDrawer from "@/components/CartDrawer";
 import { getDeviceToken } from "@/lib/device-token";
+import { formatPrice } from "@/lib/utils";
 import styles from "./page.module.css";
+
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+  menu_item_id?: string;
+}
+
+interface Order {
+  id: string;
+  customer_name: string | null;
+  status: string;
+  total: number;
+  order_items: OrderItem[];
+}
 
 function OrdersPageContent() {
   const searchParams = useSearchParams();
@@ -49,7 +65,7 @@ function OrdersView({ tableId }: { tableId: string }) {
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
 
-  const [sessionOrders, setSessionOrders] = useState<any[]>([]);
+  const [sessionOrders, setSessionOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const hasFetchedOnce = useRef(false);
 
@@ -86,17 +102,18 @@ function OrdersView({ tableId }: { tableId: string }) {
     };
 
     fetchOrders();
-    const interval = setInterval(fetchOrders, 3000);
+    const interval = setInterval(fetchOrders, 8000);
     return () => clearInterval(interval);
   }, [session?.id, tableId]);
 
   /* ── handlers ── */
   const handleStartSession = async () => {
     if (!nameInput.trim()) return alert("Please enter your name");
+    const name = nameInput.trim();
     setIsStarting(true);
     try {
-      setCustomerName(nameInput.trim());
-      await startSession(tableId);
+      setCustomerName(name);
+      await startSession(tableId, name);
     } catch {
       alert("Failed to start session");
     } finally {
@@ -107,10 +124,11 @@ function OrdersView({ tableId }: { tableId: string }) {
   const handleJoinSession = async () => {
     if (!nameInput.trim() || !pinInput.trim())
       return alert("Please enter name and PIN");
+    const name = nameInput.trim();
     setIsStarting(true);
     try {
-      setCustomerName(nameInput.trim());
-      await joinSession(pinInput.trim(), tableId);
+      setCustomerName(name);
+      await joinSession(pinInput.trim(), tableId, name);
     } catch {
       alert("Failed to join session. Check your PIN.");
     } finally {
@@ -121,7 +139,7 @@ function OrdersView({ tableId }: { tableId: string }) {
   /* ── cart access (for reorder) ── */
   const { items: cartItems, addItem, updateQuantity } = useCart();
 
-  const handleReorder = async (item: any) => {
+  const handleReorder = async (item: OrderItem) => {
     // If already in cart, just increment qty
     const existing = cartItems.find((i) => i.name === item.name);
     if (existing) {
@@ -129,57 +147,63 @@ function OrdersView({ tableId }: { tableId: string }) {
       return;
     }
 
-    // Fetch menu to find the item's real UUID
-    try {
-      const res = await fetch("/api/menu");
-      if (res.ok) {
-        const menuData = await res.json();
-        const match = menuData.find(
-          (m: any) => m.name.toLowerCase() === item.name.toLowerCase()
-        );
-        if (match) {
-          addItem({ id: match.id, name: match.name, price: match.price, image: match.image_url });
-          return;
+    // Use menu_item_id if available to avoid fetching the whole menu
+    if (item.menu_item_id) {
+      try {
+        const res = await fetch(`/api/menu?id=${item.menu_item_id}`);
+        if (res.ok) {
+          const menuData = await res.json();
+          const match = Array.isArray(menuData) ? menuData[0] : menuData;
+          if (match) {
+            addItem({ id: match.id, name: match.name, price: match.price, image: match.image_url });
+            return;
+          }
         }
+      } catch {
+        // Fall through
       }
-    } catch {
-      // Fall through
     }
 
     // Fallback: redirect to menu
     router.push(`/menu?table=${tableId}`);
   };
 
-  /* ── split orders ── */
-  const personalOrders = session
-    ? sessionOrders.filter((o) => o.customer_name === customerName)
-    : sessionOrders;
+  /* ── split orders (memoised) ── */
+  const personalOrders = useMemo(
+    () => session
+      ? sessionOrders.filter((o) => !o.customer_name || o.customer_name === customerName)
+      : sessionOrders,
+    [session, sessionOrders, customerName]
+  );
 
-  const othersOrders = session
-    ? sessionOrders.filter((o) => o.customer_name !== customerName)
-    : [];
-  const personalItems = personalOrders.flatMap((o) => o.order_items || []);
+  const othersOrders = useMemo(
+    () => session ? sessionOrders.filter((o) => o.customer_name && o.customer_name !== customerName) : [],
+    [session, sessionOrders, customerName]
+  );
 
-  const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
+  const personalItems = useMemo(
+    () => personalOrders.flatMap((o) => o.order_items || []),
+    [personalOrders]
+  );
 
-  const personalTotal = personalOrders.reduce((sum, o) => {
-    return sum + (o.order_items || []).reduce((itemSum: number, item: any) => {
-      return itemSum + (item.price * (item.quantity || item.qty || 1));
-    }, 0);
-  }, 0);
+  const personalTotal = useMemo(
+    () => personalOrders.reduce((sum, o) =>
+      sum + (o.order_items || []).reduce((itemSum, item) => itemSum + item.price * item.quantity, 0), 0),
+    [personalOrders]
+  );
 
-  const othersTotal = othersOrders.reduce((sum, o) => {
-    return sum + (o.order_items || []).reduce((itemSum: number, item: any) => {
-      return itemSum + (item.price * (item.quantity || item.qty || 1));
-    }, 0);
-  }, 0);
+  const othersTotal = useMemo(
+    () => othersOrders.reduce((sum, o) =>
+      sum + (o.order_items || []).reduce((itemSum, item) => itemSum + item.price * item.quantity, 0), 0),
+    [othersOrders]
+  );
 
   const groupTotal = personalTotal + othersTotal;
 
-  // Collect all unique items from others (for bottom banner)
-  const othersItemNames = othersOrders
-    .flatMap((o) => (o.order_items || []).map((i: any) => i.name))
-    .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i);
+  const othersItemNames = useMemo(
+    () => [...new Set(othersOrders.flatMap((o) => (o.order_items || []).map((i) => i.name)))],
+    [othersOrders]
+  );
 
   return (
     <div className={styles.page}>
@@ -205,10 +229,9 @@ function OrdersView({ tableId }: { tableId: string }) {
 
       {/* ──── Order Together ──── */}
       {!isHydrated ? (
-        <section className={styles.joinSection} style={{ opacity: 0 }}>
-          <div className={styles.joinCard}>
-            <h2 className={styles.joinTitle}>Order together</h2>
-            <p className={styles.joinDesc}>Loading session...</p>
+        <section className={styles.joinSection}>
+          <div className={styles.loading}>
+            <div className={styles.spinner} />
           </div>
         </section>
       ) : session ? (
@@ -278,7 +301,7 @@ function OrdersView({ tableId }: { tableId: string }) {
                     onClick={handleJoinSession}
                     disabled={isStarting}
                   >
-                    {isStarting ? "Joining…" : "Join Session"}
+                    {isStarting ? <><span className="btn-spinner" /> Joining…</> : "Join Session"}
                   </button>
                 </>
               ) : (
@@ -294,7 +317,7 @@ function OrdersView({ tableId }: { tableId: string }) {
                     onClick={handleStartSession}
                     disabled={isStarting}
                   >
-                    {isStarting ? "Starting…" : "Start Session"}
+                    {isStarting ? <><span className="btn-spinner" /> Starting…</> : "Start Session"}
                   </button>
                 </>
               )}
@@ -337,17 +360,17 @@ function OrdersView({ tableId }: { tableId: string }) {
                 <div key={order.id || orderIdx}>
                   <p className={styles.orderGroupLabel}>Order {orderIdx + 1}</p>
                   <div className={styles.itemsList}>
-                    {order.order_items.map((item: any, idx: number) => (
+                    {order.order_items.map((item: OrderItem, idx: number) => (
                       <div key={idx} className={styles.itemRow}>
                         <div className={styles.itemLeft}>
-                          <i 
-                            className="mgc_fork_spoon_line" 
+                          <i
+                            className="mgc_fork_spoon_line"
                             style={{ fontSize: '20px', color: 'var(--color-primary)', marginTop: '2px' }}
                           ></i>
                           <div className={styles.itemInfo}>
                             <span className={styles.itemName}>{item.name}</span>
                             <span className={styles.itemQty}>
-                              Qty {item.quantity || item.qty}
+                              Qty {item.quantity}
                             </span>
                           </div>
                         </div>
@@ -401,17 +424,17 @@ function OrdersView({ tableId }: { tableId: string }) {
                         {o.customer_name || "Guest"}&rsquo;s Order
                       </p>
                       <div className={styles.itemsList}>
-                        {o.order_items.map((item: any, i: number) => (
+                        {o.order_items.map((item: OrderItem, i: number) => (
                           <div key={i} className={styles.itemRow} style={{ color: "var(--color-inverse-on-surface)" }}>
                             <div className={styles.itemLeft}>
                               <div className={styles.itemInfo}>
                                 <span className={styles.itemName} style={{ color: "var(--color-inverse-on-surface)" }}>{item.name}</span>
                                 <span className={styles.itemQty} style={{ color: "var(--color-outline-variant)" }}>
-                                  Qty {item.quantity || item.qty}
+                                  Qty {item.quantity}
                                 </span>
                               </div>
                             </div>
-                            <span style={{ fontWeight: "bold" }}>{formatPrice(item.price * (item.quantity || item.qty || 1))}</span>
+                            <span style={{ fontWeight: "bold" }}>{formatPrice(item.price * item.quantity)}</span>
                           </div>
                         ))}
                       </div>
@@ -433,6 +456,8 @@ function OrdersView({ tableId }: { tableId: string }) {
               <div className={styles.othersAvatars}>
                 <div
                   className={styles.othersAvatar}
+                  role="img"
+                  aria-label="Customer avatar"
                   style={{
                     backgroundImage:
                       "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=80&q=60')",
@@ -440,6 +465,8 @@ function OrdersView({ tableId }: { tableId: string }) {
                 />
                 <div
                   className={styles.othersAvatar}
+                  role="img"
+                  aria-label="Customer avatar"
                   style={{
                     backgroundImage:
                       "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=80&q=60')",

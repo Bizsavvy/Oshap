@@ -33,6 +33,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const parsedPrice = parseFloat(price);
+  if (isNaN(parsedPrice) || parsedPrice <= 0 || parsedPrice > 1_000_000) {
+    return Response.json(
+      { error: "Price must be a number between 0 and 1,000,000" },
+      { status: 400 }
+    );
+  }
+
   const supabase = createServerClient();
 
   const { data, error } = await supabase
@@ -40,7 +48,7 @@ export async function POST(request: Request) {
     .insert({
       restaurant_id: DEMO_RESTAURANT_ID,
       name,
-      price: parseInt(price, 10),
+      price: parsedPrice,
       category,
       description: description || null,
       image_url: image_url || null,
