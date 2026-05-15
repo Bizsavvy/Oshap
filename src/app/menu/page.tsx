@@ -198,7 +198,7 @@ function MenuPageContent() {
             
             // Extract unique categories
             const cats = new Set(menuData.map((item: { category: string }) => item.category));
-            setCategories([{ name: "All" }, ...Array.from(cats).map((name) => ({ name }))]);
+            setCategories([{ name: "All" }, ...Array.from(cats as Set<string>).map((name) => ({ name }))]);
           }
         }
       } catch (err) {
